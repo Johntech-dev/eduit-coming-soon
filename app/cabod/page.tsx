@@ -277,7 +277,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div  className="flex h-screen">
+    <div  className="flex h-full">
     <aside className="w-64 p-6 bg-white  text-black h-screen flex flex-col justify-between shadow-lg">
   <div className="space-y-4">
     {/* <h2 className="text-xl font-bold mb-6 border-b border-slate-600 pb-3">Admin Tools</h2> */}

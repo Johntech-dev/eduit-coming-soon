@@ -35,6 +35,44 @@ const emailConfig = {
   },
 }
 
+// Function to send notification to admin
+async function notifyAdmin(action: string, email: string, schoolName?: string) {
+  try {
+    const transporter = nodemailer.createTransport(emailConfig)
+    let subject, html
+
+    if (action === "subscribe") {
+      subject = "New Subscription Notification"
+      html = `
+        <div>
+          <h2>New Subscriber</h2>
+          <p>Email: ${email}</p>
+          <p>Action: Subscribed to notifications</p>
+        </div>
+      `
+    } else if (action === "join") {
+      subject = "New Waitlist Entry Notification"
+      html = `
+        <div>
+          <h2>New Waitlist Entry</h2>
+          <p>Email: ${email}</p>
+          <p>School Name: ${schoolName}</p>
+          <p>Action: Joined the waitlist</p>
+        </div>
+      `
+    }
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.ADMIN_EMAIL, // Admin email
+      subject,
+      html,
+    })
+  } catch (error) {
+    console.error("Error notifying admin:", error)
+  }
+}
+
 // Function to subscribe to notifications (just email)
 export async function subscribeToNotifications(email: string) {
   if (!email || !email.includes("@")) {
@@ -71,7 +109,7 @@ export async function subscribeToNotifications(email: string) {
       return { error: "This email is already subscribed for notifications" }
     }
 
-    // Insert into notifications table with confirmed set to false
+    // Insert into notifications table
     const { error: insertError } = await supabase.from("notifications").insert({ email, confirmed: false })
 
     if (insertError) {
@@ -81,9 +119,8 @@ export async function subscribeToNotifications(email: string) {
 
     // Send confirmation email
     await sendConfirmationEmail(email, "notification")
-
-    // Update confirmed status to true
-    await supabase.from("notifications").update({ confirmed: true }).eq("email", email)
+    // Notify admin
+    await notifyAdmin("subscribe", email)
 
     return { success: true }
   } catch (error) {
@@ -136,7 +173,7 @@ export async function joinWaitlist(schoolName: string, email: string, phoneNumbe
       return { error: "This school is already on our waitlist" }
     }
 
-    // Insert into waitlist table with confirmed set to false
+    // Insert into waitlist table
     const { error: insertError } = await supabase.from("waitlist").insert({
       school_name: schoolName,
       email,
@@ -152,9 +189,8 @@ export async function joinWaitlist(schoolName: string, email: string, phoneNumbe
 
     // Send confirmation email
     await sendConfirmationEmail(email, "waitlist", schoolName)
-
-    // Update confirmed status to true
-    await supabase.from("waitlist").update({ confirmed: true }).eq("email", email)
+    // Notify admin
+    await notifyAdmin("join", email, schoolName)
 
     return { success: true }
   } catch (error) {
