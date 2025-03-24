@@ -42,7 +42,7 @@ export async function subscribeToNotifications(email: string) {
   }
 
   try {
-    // First, let's check if the table exists by trying to get its structure
+    // Check if the table exists
     const { error: tableCheckError } = await supabase.from("notifications").select("id").limit(1)
 
     if (tableCheckError) {
@@ -71,8 +71,8 @@ export async function subscribeToNotifications(email: string) {
       return { error: "This email is already subscribed for notifications" }
     }
 
-    // Insert into notifications table with simplified data structure
-    const { error: insertError } = await supabase.from("notifications").insert({ email })
+    // Insert into notifications table with confirmed set to false
+    const { error: insertError } = await supabase.from("notifications").insert({ email, confirmed: false })
 
     if (insertError) {
       console.error("Error inserting notification:", insertError)
@@ -82,7 +82,9 @@ export async function subscribeToNotifications(email: string) {
     // Send confirmation email
     await sendConfirmationEmail(email, "notification")
 
-    revalidatePath("/")
+    // Update confirmed status to true
+    await supabase.from("notifications").update({ confirmed: true }).eq("email", email)
+
     return { success: true }
   } catch (error) {
     console.error("Error subscribing to notifications:", error)
@@ -134,12 +136,13 @@ export async function joinWaitlist(schoolName: string, email: string, phoneNumbe
       return { error: "This school is already on our waitlist" }
     }
 
-    // Insert into waitlist table with phone number
+    // Insert into waitlist table with confirmed set to false
     const { error: insertError } = await supabase.from("waitlist").insert({
       school_name: schoolName,
       email,
       phone_number: phoneNumber,
       discount: 50,
+      confirmed: false,
     })
 
     if (insertError) {
@@ -147,11 +150,12 @@ export async function joinWaitlist(schoolName: string, email: string, phoneNumbe
       return { error: "Failed to join waitlist. Database error." }
     }
 
-    // Also add to notifications table if not already there
-    await subscribeToNotifications(email)
+    // Send confirmation email
+    await sendConfirmationEmail(email, "waitlist", schoolName)
 
-    revalidatePath("/")
-    revalidatePath("/admin")
+    // Update confirmed status to true
+    await supabase.from("waitlist").update({ confirmed: true }).eq("email", email)
+
     return { success: true }
   } catch (error) {
     console.error("Error joining waitlist:", error)
@@ -225,10 +229,8 @@ export async function sendNotification(message: string) {
 // Helper function to send confirmation emails
 async function sendConfirmationEmail(email: string, type: "notification" | "waitlist", schoolName?: string) {
   try {
-    // Create a transporter
     const transporter = nodemailer.createTransport(emailConfig)
 
-    // Email content based on type
     let subject, html
 
     if (type === "notification") {
@@ -250,45 +252,30 @@ async function sendConfirmationEmail(email: string, type: "notification" | "wait
           </div>
         </div>
       `
-    } else {
-      subject = "Welcome to the EduIT Waitlist - 50% Discount Confirmed!"
+    } else if (type === "waitlist") {
+      subject = "Thank you for joining the EduIT waitlist"
       html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #16a34a; padding: 20px; text-align: center; color: white;">
             <h1>EduIT</h1>
           </div>
           <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none;">
-            <h2>Welcome to the EduIT Waitlist, ${schoolName}!</h2>
-            <p>Your school has been added to our waitlist and you've secured a <strong style="color: #f97316;">50% discount</strong> on our regular pricing when we launch.</p>
-            <p>We're building a complete school management system that will simplify administration, enhance learning, and connect your entire educational community.</p>
-            <p>We'll notify you as soon as EduIT is ready to launch!</p>
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
-              <p>© 2024 EduIT. All rights reserved.</p>
-              <p>If you didn't sign up for the waitlist, please ignore this email.</p>
-            </div>
+            <h2>Thank You for Joining the Waitlist!</h2>
+            <p>Your school, ${schoolName}, has been added to our waitlist. We'll notify you as soon as we launch.</p>
+            <p>Thank you for your interest in EduIT!</p>
           </div>
         </div>
       `
     }
 
-    // Send email
     await transporter.sendMail({
-      from: `"EduIT" <${emailConfig.auth.user}>`,
+      from: process.env.EMAIL_USER,
       to: email,
       subject,
       html,
-      headers: {
-        "X-Priority": "1", // High priority
-        Importance: "high",
-        "X-MSMail-Priority": "High",
-        "X-Mailer": "EduIT Notification System",
-      },
     })
-
-    return true
   } catch (error) {
     console.error("Error sending confirmation email:", error)
-    return false
   }
 }
 
@@ -335,6 +322,46 @@ async function sendEmailNotification(email: string, message: string) {
   } catch (error) {
     console.error("Error sending notification email:", error)
     return false
+  }
+}
+
+// Function to resend confirmation emails
+export async function resendConfirmationEmails() {
+  try {
+    // Get all unconfirmed notifications
+    const { data: unconfirmedNotifications, error: notificationError } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("confirmed", false)
+
+    if (notificationError) throw notificationError
+
+    // Send emails to unconfirmed notifications
+    for (const notification of unconfirmedNotifications) {
+      await sendConfirmationEmail(notification.email, "notification")
+      // Update confirmed status to true after sending
+      await supabase.from("notifications").update({ confirmed: true }).eq("email", notification.email)
+    }
+
+    // Get all unconfirmed waitlist entries
+    const { data: unconfirmedWaitlist, error: waitlistError } = await supabase
+      .from("waitlist")
+      .select("*")
+      .eq("confirmed", false)
+
+    if (waitlistError) throw waitlistError
+
+    // Send emails to unconfirmed waitlist entries
+    for (const entry of unconfirmedWaitlist) {
+      await sendConfirmationEmail(entry.email, "waitlist", entry.school_name)
+      // Update confirmed status to true after sending
+      await supabase.from("waitlist").update({ confirmed: true }).eq("email", entry.email)
+    }
+
+    return { success: "Confirmation emails resent successfully." }
+  } catch (error) {
+    console.error("Error resending confirmation emails:", error)
+    return { error: "Failed to resend confirmation emails." }
   }
 }
 

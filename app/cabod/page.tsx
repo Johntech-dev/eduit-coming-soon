@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { getWaitlistEntries, getNotificationSubscribers, sendNotification } from "@/lib/actions"
+import { getWaitlistEntries, getNotificationSubscribers, sendNotification, resendConfirmationEmails } from "@/lib/actions"
 import { exportToCSV } from "@/lib/utils"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -177,6 +177,39 @@ export default function AdminDashboard() {
     exportToCSV(data, "waitlist_entries")
   }
 
+  const exportWaitlist = async () => {
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      waitlistEntries.map(e => `${e.school_name},${e.email},${e.phone_number}`).join("\n")
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", "waitlist.csv")
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const exportSubscribers = async () => {
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      notificationSubscribers.map(e => `${e.email}`).join("\n")
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", "subscribers.csv")
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleResendEmails = async () => {
+    const response = await resendConfirmationEmails()
+    if (response.success) {
+      toast.success("Confirmation emails resent successfully.")
+    } else {
+      toast.error("Failed to resend confirmation emails.")
+    }
+  }
+
   const totalPages = Math.ceil(waitlistEntries.length / ITEMS_PER_PAGE)
   const waitlistPaginated = waitlistEntries.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -246,6 +279,27 @@ export default function AdminDashboard() {
               >
                 <Download className="h-4 w-4" />
                 <span>Export CSV</span>
+              </Button>
+              <Button
+                onClick={exportWaitlist}
+                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
+              >
+                <Download className="h-4 w-4" />
+                <span>Export Waitlist</span>
+              </Button>
+              <Button
+                onClick={exportSubscribers}
+                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
+              >
+                <Download className="h-4 w-4" />
+                <span>Export Subscribers</span>
+              </Button>
+              <Button
+                onClick={handleResendEmails}
+                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
+              >
+                <Download className="h-4 w-4" />
+                <span>Resend Confirmation Emails</span>
               </Button>
               <Button
                 onClick={() => {
