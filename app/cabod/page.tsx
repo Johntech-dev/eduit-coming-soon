@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Bell, Download, LogOut, Rocket, Users, ChevronLeft, ChevronRight } from "lucide-react"
+import { Bell, Download, LogOut, Rocket, Users, ChevronLeft, ChevronRight, Mail, RefreshCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -210,6 +210,16 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleNotifyEveryone = async () => {
+    const message = "EduIT has been launched! Check it out now!"
+    const response = await sendNotification(message)
+    if (response.success) {
+      toast.success("Notification sent to all subscribers.")
+    } else {
+      toast.error("Failed to send notification.")
+    }
+  }
+
   const totalPages = Math.ceil(waitlistEntries.length / ITEMS_PER_PAGE)
   const waitlistPaginated = waitlistEntries.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -267,49 +277,70 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <div  className="flex h-screen">
+    <aside className="w-64 p-6 bg-white  text-black h-screen flex flex-col justify-between shadow-lg">
+  <div className="space-y-4">
+    {/* <h2 className="text-xl font-bold mb-6 border-b border-slate-600 pb-3">Admin Tools</h2> */}
+    
+    <div className="space-y-8">
+      <Button 
+        onClick={exportWaitlist} 
+        className="w-full justify-start bg-emerald-600 hover:bg-emerald-700 transition-colors"
+      >
+        <Users className="h-4 w-4 mr-2" />
+        Export Waitlist
+      </Button>
+      
+      <Button 
+        onClick={exportSubscribers} 
+        className="w-full justify-start bg-emerald-600 hover:bg-emerald-700 transition-colors"
+      >
+        <Mail className="h-4 w-4 mr-2" />
+        Export Subscribers
+      </Button>
+      
+      <Button 
+        onClick={handleResendEmails} 
+        className="w-full justify-start bg-emerald-600 hover:bg-emerald-700 transition-colors"
+      >
+        <RefreshCcw className="h-4 w-4 mr-2" />
+        Resend Confirmations
+      </Button>
+      
+      <Button 
+        onClick={handleNotifyEveryone} 
+        className="w-full justify-start bg-emerald-600 hover:bg-emerald-700 transition-colors"
+      >
+        <Bell className="h-4 w-4 mr-2" />
+        Notify Everyone
+      </Button>
+      
+      <Button
+        onClick={handleExportCSV}
+        className="w-full justify-start bg-emerald-600 hover:bg-emerald-700 transition-colors"
+      >
+        <Download className="h-4 w-4 mr-2" />
+        Export CSV
+      </Button>
+    </div>
+  </div>
+  
+  <Button
+    onClick={() => {
+      localStorage.removeItem("adminAuth")
+      setIsAuthenticated(false)
+    }}
+    className="w-full mt-auto bg-red-600 hover:bg-red-700 transition-colors"
+  >
+    <LogOut className="h-4 w-4 mr-2" />
+    Logout
+  </Button>
+</aside>
+      <main style={{ padding: '20px', flexGrow: 1, backgroundColor: '#ecf0f1' }}>
         <div className="px-4 py-6 sm:px-0">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
             <div className="flex space-x-4">
-              <Button
-                onClick={handleExportCSV}
-                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
-              >
-                <Download className="h-4 w-4" />
-                <span>Export CSV</span>
-              </Button>
-              <Button
-                onClick={exportWaitlist}
-                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
-              >
-                <Download className="h-4 w-4" />
-                <span>Export Waitlist</span>
-              </Button>
-              <Button
-                onClick={exportSubscribers}
-                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
-              >
-                <Download className="h-4 w-4" />
-                <span>Export Subscribers</span>
-              </Button>
-              <Button
-                onClick={handleResendEmails}
-                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
-              >
-                <Download className="h-4 w-4" />
-                <span>Resend Confirmation Emails</span>
-              </Button>
-              <Button
-                onClick={() => {
-                  localStorage.removeItem("adminAuth")
-                  setIsAuthenticated(false)
-                }}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                Logout
-              </Button>
             </div>
           </div>
 
@@ -440,5 +471,23 @@ export default function AdminDashboard() {
       </main>
     </div>
   )
+}
+
+const buttonStyle = {
+  display: 'block',
+  width: '100%',
+  padding: '10px',
+  margin: '10px 0',
+  border: 'none',
+  borderRadius: '5px',
+  backgroundColor: '#3498db',
+  color: '#fff',
+  fontSize: '16px',
+  cursor: 'pointer',
+  transition: 'background-color 0.3s',
+}
+
+const hoverStyle = {
+  backgroundColor: '#2980b9',
 }
 
